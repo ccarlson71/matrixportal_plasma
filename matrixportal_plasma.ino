@@ -31,7 +31,7 @@ double cos_lut[360];
 double sqrt_lut[5120];
 
 int reset_counter;
-#define RESET_THRESHOLD 10000
+#define RESET_THRESHOLD 5000
 
 // RANDOM SEED STUFF
 // 99.9% from here: https://forum.arduino.cc/t/best-way-of-random-seed/640617/8
@@ -163,28 +163,24 @@ double random_byte(void) {
 
 void randomize_palette(void) {
   double anchors[][3] = {
-    RANDOM, BLACK,
-    RANDOM, RANDOM,
-    RANDOM, BLACK
+    RED, BLACK,
+    GREEN, BLACK,
+    BLUE, BLACK
   };
 
   int palette_steps = 40;
-  double deg_smoothing_step = 90.0 / palette_steps;
+  double deg_smoothing_step = 180.0 / palette_steps;
   
   for(int anchor_idx=0;anchor_idx<6;anchor_idx++) {
     int start_idx = anchor_idx * palette_steps;
     int stop_idx = start_idx + palette_steps;
-    int to_idx = anchor_idx + 1;
-
-    if (to_idx == 6) {
-      to_idx = 1;
-    }
+    int to_idx = (anchor_idx + 1) % 6;
     
     for(int i=start_idx;i<stop_idx;i++) {
       int j = i % palette_steps;
       double degs = j * deg_smoothing_step;
       double rads = (degs * 71) / 4068.0;
-      double f = sin(rads);
+      double f = 1.0 - ((cos(rads) + 1) / 2.0);
       
       palette[i] = interpolate(anchors[anchor_idx], anchors[to_idx], f);
     }
@@ -192,16 +188,15 @@ void randomize_palette(void) {
 }
 
 uint16_t interpolate(double from[3], double to[3], double f) {
-  return matrix.color565(
-    int((from[0] + ((to[0] - from[0]) * f))),
-    int((from[1] + ((to[1] - from[1]) * f))),
-    int((from[2] + ((to[2] - from[2]) * f)))
-  );
+  int red = int((from[0] + ((to[0] - from[0]) * f)));
+  int green = int((from[1] + ((to[1] - from[1]) * f)));
+  int blue = int((from[2] + ((to[2] - from[2]) * f)));
+
+  return matrix.color565(red, green, blue);
 }
 
 // Uses lookup tables for lots of stuff
 void fast_plasma(double seed_value) {
-  
   for(int x=0; x<WIDTH; x++) {
     for(int y=0; y<HEIGHT; y++) {
       double dx = double(x);
@@ -213,8 +208,8 @@ void fast_plasma(double seed_value) {
                                 sin_l(((dx + seed_value) + (dy - seed_value)) / 25.0) + 
                                 sin_l(sqrt_lut[(y*64) + x] / 8.0);
                                 // sin_l(sqrt((dx*dx) + (dy*dy)) / 8.0);
-      int color_index = int((calculated_value + 4.0) * 30);
-      int output_color = color_index % 240;
+      int scaled_value = int(abs(calculated_value) * 100);
+      int output_color = scaled_value % 240;
 
       matrix.drawPixel(x, y, palette[output_color]);
     }
