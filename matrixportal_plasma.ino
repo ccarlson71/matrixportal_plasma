@@ -5,7 +5,7 @@
 #define WIDTH   64 // Matrix width (pixels)
 #define MAX_FPS 45 // Maximum redraw rate, frames/second
 #define SCALE_BRIGHTNESS 0.2
-#define BLACK { 0, 0, 0 }
+#define BLACK { 0.0, 0.0, 0.0 }
 #define RANDOM { random_byte(), random_byte(), random_byte() }
 #define RED { 255, 0, 0 }
 #define BLUE { 0, 0, 255 }
@@ -157,52 +157,46 @@ double cos_l(double rads) {
   return cos_lut[m_value];
 }
 
-int random_byte(void) {
-  return int(random(255) * SCALE_BRIGHTNESS);
+double random_byte(void) {
+  return double(random(255) * SCALE_BRIGHTNESS);
 }
 
 void randomize_palette(void) {
-  int c1[] = RANDOM;
-  int c2[] = BLACK;
-  int c3[] = RANDOM;
-  int c4[] = BLACK;
-  int c5[] = RANDOM;
-  int c6[] = BLACK;
-  
-  // TO DO: Add easing between palette anchors
-  for(int i=0;i<40;i++) {
-    double f = double(i) / 40.0;
-    palette[i] = interpolate(c1[0], c1[1], c1[2], c2[0], c2[1], c2[2], f);
-  }
-  for(int i=40;i<80;i++) {
-    double f = (double(i)-40.) / 40.0;
-    palette[i] = interpolate(c2[0], c2[1], c2[2], c3[0], c3[1], c3[2], f);
-  }
-  for(int i=80;i<120;i++) {
-    double f = (double(i)-80.0) / 40.0;
-    palette[i] = interpolate(c3[0], c3[1], c3[2], c4[0], c4[1], c4[2], f);
-  }
-  for(int i=120;i<160;i++) {
-    double f = (double(i)-120.0) / 40.0;
-    palette[i] = interpolate(c4[0], c4[1], c4[2], c5[0], c5[1], c5[2], f);
-  }
-  for(int i=160;i<200;i++) {
-    double f = (double(i)-160.0) / 40.0;
-    palette[i] = interpolate(c5[0], c5[1], c5[2], c6[0], c6[1], c6[2], f);
-  }
-  for(int i=200;i<240;i++) {
-    double f = (double(i)-200.0) / 40.0;
-    palette[i] = interpolate(c6[0], c6[1], c6[2], c1[0], c1[1], c1[2], f);
-  }
+  double anchors[][3] = {
+    RANDOM, BLACK,
+    RANDOM, RANDOM,
+    RANDOM, BLACK
+  };
 
+  int palette_steps = 40;
+  double deg_smoothing_step = 90.0 / palette_steps;
+  
+  for(int anchor_idx=0;anchor_idx<6;anchor_idx++) {
+    int start_idx = anchor_idx * palette_steps;
+    int stop_idx = start_idx + palette_steps;
+    int to_idx = anchor_idx + 1;
+
+    if (to_idx == 6) {
+      to_idx = 1;
+    }
+    
+    for(int i=start_idx;i<stop_idx;i++) {
+      int j = i % palette_steps;
+      double degs = j * deg_smoothing_step;
+      double rads = (degs * 71) / 4068.0;
+      double f = sin(rads);
+      
+      palette[i] = interpolate(anchors[anchor_idx], anchors[to_idx], f);
+    }
+  }
 }
 
-uint16_t interpolate(int r1, int g1, int b1, int r2, int g2, int b2, double f) {
+uint16_t interpolate(double from[3], double to[3], double f) {
   return matrix.color565(
-    int((r1 + ((r2 - r1) * f))),
-    int((g1 + ((g2 - g1) * f))),
-    int((b1 + ((b2 - b1) * f)))
-   );
+    int((from[0] + ((to[0] - from[0]) * f))),
+    int((from[1] + ((to[1] - from[1]) * f))),
+    int((from[2] + ((to[2] - from[2]) * f)))
+  );
 }
 
 // Uses lookup tables for lots of stuff
