@@ -34,6 +34,7 @@ int reset_counter;
 #define RESET_THRESHOLD 10000
 
 // RANDOM SEED STUFF
+// 99.9% from here: https://forum.arduino.cc/t/best-way-of-random-seed/640617/8
 const byte analogPort = A1;
 
 const int SEED_BUCKET_SIZE = 64;
