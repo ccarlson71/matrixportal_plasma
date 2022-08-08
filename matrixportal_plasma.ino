@@ -9,6 +9,9 @@
 #define PLASMA_PALETTE_SIZE 240
 #define PLASMA_COLORS 6
 
+#define LIFE_INIT_DENSITY 30 // Express as percentage
+#define LIFE_GENERATIONS 400
+
 uint8_t rgbPins[]  = {7, 8, 9, 10, 11, 12};
 uint8_t addrPins[] = {17, 18, 19, 20};
 uint8_t clockPin   = 14;
@@ -23,6 +26,8 @@ Adafruit_Protomatter matrix(
   64, 6, 1, rgbPins, 4, addrPins, clockPin, latchPin, oePin, true); // true indicates double-buffering
 
 uint16_t plasma_palette[PLASMA_PALETTE_SIZE];
+uint16_t white_pixel = matrix.color565(255, 255, 255);
+uint16_t black_pixel = matrix.color565(0, 0, 0);
 
 double sin_lut[360];
 double cos_lut[360];
@@ -97,8 +102,8 @@ long getRandomSeed(int numBits)
 
 void randomize_plasma() {
   randomize_seed();
-  randomize_palette();
-  randomize_location();
+  randomize_plasma_palette();
+  randomize_plasma_location();
   plasma_randomizing_param = 10 + (random(750) / 50.0);
 }
 
@@ -106,7 +111,7 @@ void randomize_seed() {
   randomSeed(getRandomSeed(31));
 }
 
-void randomize_location() {
+void randomize_plasma_location() {
   plasma_current_value = random(100000);
 }
 
@@ -126,7 +131,7 @@ double random_byte(void) {
   return double(random(255));
 }
 
-void randomize_palette(void) {
+void randomize_plasma_palette(void) {
   // The first color is black. The rest are randomly determined
   // We should maybe enforce some distance between two colors?
   double anchor_colors[PLASMA_COLORS][3];
@@ -199,6 +204,42 @@ void run_plasma(void) {
   }
 }
 
+void run_game_of_life(void) {
+  // Initialize
+  int life_arrays[2][WIDTH * HEIGHT];
+  for (int i=0; i<(WIDTH*HEIGHT); i++) { life_arrays[0][i] = (random(100)<LIFE_INIT_DENSITY) ? 1 : 0; }
+
+  int from_array = 0;
+  int to_array, yyy, ym1, yp1, xm1, xp1, neighbors, new_value;
+
+  for (int generation=0; generation < LIFE_GENERATIONS; generation++) {
+    int to_array = 1 - from_array;
+    // Populate from-array
+    for (int y=0; y<HEIGHT; y++) {
+      yyy = y * WIDTH;
+      ym1 = ((y + HEIGHT - 1) % HEIGHT) * WIDTH;
+      yp1 = ((y + 1) % HEIGHT) * WIDTH;
+      xm1 = WIDTH - 1;
+      for (int x=0; x<WIDTH; x++) {
+        xp1 = (x + 1) % WIDTH;
+        neighbors = (
+          life_arrays[from_array][xm1 + ym1] + life_arrays[from_array][xm1 + yyy] + life_arrays[from_array][xm1 + yp1] +
+          life_arrays[from_array][x   + ym1] +                                      life_arrays[from_array][x   + yp1] +
+          life_arrays[from_array][xp1 + ym1] + life_arrays[from_array][xp1 + yyy] + life_arrays[from_array][xp1 + yp1]
+          );
+        new_value = ((neighbors == 3) || ((neighbors == 2) && (life_arrays[from_array][x + yyy] == 1))) ? 1 : 0;
+        life_arrays[to_array][x + yyy] = new_value;
+        matrix.drawPixel(x, y, (new_value == 1) ? white_pixel : black_pixel);    
+      }
+    }
+        
+    // Activate display
+    matrix.show();
+
+    from_array = to_array;
+  }
+}
+
 void setup(void) {
   Serial.begin(9600);
 
@@ -233,5 +274,6 @@ void setup(void) {
 }
 
 void loop(void) {
-  run_plasma();
+  // run_plasma();
+  run_game_of_life;
 }
