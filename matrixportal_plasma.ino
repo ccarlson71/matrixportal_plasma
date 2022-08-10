@@ -101,18 +101,13 @@ long getRandomSeed(int numBits)
 // END RANDOM COLOR SEED STUFF
 
 void randomize_plasma() {
-  randomize_seed();
   randomize_plasma_palette();
-  randomize_plasma_location();
+  plasma_current_value = random(100000);
   plasma_randomizing_param = 10 + (random(750) / 50.0);
 }
 
 void randomize_seed() {
   randomSeed(getRandomSeed(31));
-}
-
-void randomize_plasma_location() {
-  plasma_current_value = random(100000);
 }
 
 double sin_l(double rads) {
@@ -201,42 +196,67 @@ void run_plasma(void) {
     plasma_current_value += plasma_step_value;
 
     reset_counter += 1;
+    Serial.println(PLASMA_CYCLES_LIMIT - reset_counter);
   }
 }
 
-void run_game_of_life(void) {
-  // Initialize
-  int life_arrays[2][WIDTH * HEIGHT];
-  for (int i=0; i<(WIDTH*HEIGHT); i++) { life_arrays[0][i] = (random(100)<LIFE_INIT_DENSITY) ? 1 : 0; }
-
-  int from_array = 0;
-  int to_array, yyy, ym1, yp1, xm1, xp1, neighbors, new_value;
-
-  for (int generation=0; generation < LIFE_GENERATIONS; generation++) {
-    int to_array = 1 - from_array;
-    // Populate from-array
-    for (int y=0; y<HEIGHT; y++) {
-      yyy = y * WIDTH;
-      ym1 = ((y + HEIGHT - 1) % HEIGHT) * WIDTH;
-      yp1 = ((y + 1) % HEIGHT) * WIDTH;
-      xm1 = WIDTH - 1;
-      for (int x=0; x<WIDTH; x++) {
-        xp1 = (x + 1) % WIDTH;
-        neighbors = (
-          life_arrays[from_array][xm1 + ym1] + life_arrays[from_array][xm1 + yyy] + life_arrays[from_array][xm1 + yp1] +
-          life_arrays[from_array][x   + ym1] +                                      life_arrays[from_array][x   + yp1] +
-          life_arrays[from_array][xp1 + ym1] + life_arrays[from_array][xp1 + yyy] + life_arrays[from_array][xp1 + yp1]
-          );
-        new_value = ((neighbors == 3) || ((neighbors == 2) && (life_arrays[from_array][x + yyy] == 1))) ? 1 : 0;
-        life_arrays[to_array][x + yyy] = new_value;
-        matrix.drawPixel(x, y, (new_value == 1) ? white_pixel : black_pixel);    
-      }
-    }
+void run_game_of_life(int reps) {
+  for (int rep=0; rep<reps; rep++) {
+    // Initialize
+    Serial.println("Running Game of Life");
+    int life_arrays[3][WIDTH * HEIGHT];
+    Serial.println("Initializing random life array");
+    for (int i=0; i<(WIDTH*HEIGHT); i++) { life_arrays[0][i] = (random(100)<LIFE_INIT_DENSITY) ? 1 : 0; }
+  
+    int from_array = 0;
+    int to_array, yyy, ym1, yp1, xm1, xp1, neighbors, new_value;
+  
+    Serial.println("Starting simulation");
+  
+    unsigned long int last_millis;
+    
+    for (int generation=0; generation < LIFE_GENERATIONS; generation++) {
+      last_millis = millis();
+      int to_array = (from_array + 1) % 3;
+      int live_count = 0;
+      // Populate from-array
+      for (int y=0; y<HEIGHT; y++) {
+        yyy = y * WIDTH;
+        ym1 = ((y + HEIGHT - 1) % HEIGHT) * WIDTH;
+        yp1 = ((y + 1) % HEIGHT) * WIDTH;
+        xm1 = WIDTH - 1;
+        for (int x=0; x<WIDTH; x++) {
+          xp1 = (x + 1) % WIDTH;
+          neighbors = (
+            life_arrays[from_array][xm1 + ym1] + life_arrays[from_array][xm1 + yyy] + life_arrays[from_array][xm1 + yp1] +
+            life_arrays[from_array][x   + ym1] +                                      life_arrays[from_array][x   + yp1] +
+            life_arrays[from_array][xp1 + ym1] + life_arrays[from_array][xp1 + yyy] + life_arrays[from_array][xp1 + yp1]
+            );
+          int self_value = life_arrays[from_array][x + yyy];
+          new_value = ((neighbors == 3) || ((neighbors == 2) && (self_value == 1))) ? 1 : 0;
+          live_count += new_value;
+          life_arrays[to_array][x + yyy] = new_value;
+          xm1 = x;
+          matrix.drawPixel(x, y, (new_value == 1) ? white_pixel : black_pixel);    
+        }
         
-    // Activate display
-    matrix.show();
-
-    from_array = to_array;
+  
+      }
+          
+      // Activate display
+      matrix.show();
+      if (live_count < 3) {
+        break;
+      }
+      for (;;) {
+        if (millis() > last_millis + 150) {
+          break;
+        }
+      }
+  
+      Serial.println(LIFE_GENERATIONS - generation);
+      from_array = to_array;
+    }
   }
 }
 
@@ -251,19 +271,24 @@ void setup(void) {
     for (;;);
   }
 
+  randomize_seed();
+
   // Initialize sine LUT
+  Serial.println("Building sine LUT");
   for (int x = 0; x < 360; x++) {
     float x_rads = (x * 71) / 4068.0;
     sin_lut[x] = sin(x_rads);
   }
 
   // Initialize cosine LUT
+  Serial.println("Building cosine LUT");
   for (int x = 0; x < 360; x++) {
     float x_rads = (x * 71) / 4068.0;
     cos_lut[x] = cos(x_rads);
   }
 
   // Initialize sqrt LUT
+  Serial.println("Building sqrt LUT");
   for (int x = 0; x < 64; x++) {
     for (int y = 0; y < 32; y++) {
       int idx = (y * 64) + x;
@@ -274,6 +299,6 @@ void setup(void) {
 }
 
 void loop(void) {
-  // run_plasma();
-  run_game_of_life;
+  run_plasma();
+  run_game_of_life(8);
 }
