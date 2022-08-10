@@ -200,6 +200,13 @@ void run_plasma(void) {
   }
 }
 
+void run_particle_swarm(void) {
+  // Create a randomized cloud of particles
+  // Loop:
+  //   Rotate particles
+  //   Draw particles to matrix
+}
+
 void run_game_of_life(int reps) {
   for (int rep=0; rep<reps; rep++) {
     // Initialize
